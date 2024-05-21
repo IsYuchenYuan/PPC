@@ -197,8 +197,6 @@ elif args.losstype == "ce_dice":
 
 
 def mix_loss(output, label):
-    # LogSumExp -> softmax(x) = softmax(x-b) b is the largest num in x
-    # output = output - torch.max(output,dim=1,keepdim=True)[0]
 
     loss_ce = CE(output, label)
     if args.multiDSC:
@@ -209,8 +207,6 @@ def mix_loss(output, label):
     return loss_ce, loss_dice
 
 def unsup_mix_loss(output, label, weight):
-    # LogSumExp -> softmax(x) = softmax(x-b) b is the largest num in x
-    # output = output - torch.max(output,dim=1,keepdim=True)[0]
 
     loss_ce = (F.cross_entropy(output, label,
                                reduction='none') * weight).mean()
@@ -244,7 +240,6 @@ def train(args, snapshot_path):
         pretrain = True
 
     checkpoint = "../model/ACDC/7_labeled/ACDC_dim128_unet_6kpretrain_weight2_7_labeled/unify/unet_best_model.pth"
-    # checkpoint = "../model/ACDC/7_labeled/samplebg_strong10_weak80_dim128_6kpretrain_weight2_polylr_bs6_dist_diagonal_sigmoid_temp100_uncerlr0.01/unify/unet_best_model.pth"
     checkpoint_s_mu = '../model/LAsingle/4_labeled/inverse_softplus_strong10_weak80_dim32_3kpretrain_weight2_polylr_bs1_dist_diagonal_sigmoid_temp0.5_uncerlr0.01/' \
                       'unify/proto_mu.pt'
     checkpoint_s_sigma = '../model/LAsingle/4_labeled/inverse_softplus_strong10_weak80_dim32_3kpretrain_weight2_polylr_bs1_dist_diagonal_sigmoid_temp0.5_uncerlr0.01/' \
@@ -276,11 +271,6 @@ def train(args, snapshot_path):
         net = net.cuda()
         if pretrain:
             net.load_state_dict(torch.load(checkpoint))
-            # sigma = net.prototypes_sigma
-            # mu = net.prototypes_mu
-            # print(1/sigma.mean(-1))
-            # print(mu.mean(-1))
-            # assert 1==0
             if ema:
                 net.prototypes_mu = torch.load(checkpoint_t_mu)
                 net.prototypes_sigma = torch.load(checkpoint_t_sigma)
@@ -353,14 +343,6 @@ def train(args, snapshot_path):
             volume_batch_ul, label_batch_ul = volume_batch[labeled_bs:], label_batch[labeled_bs:]
 
             log_dict = {'iterNum': iter_num, 'lr': base_lr_, 'uncer_lr': uncer_lr_}
-            log_dict['proto_mu_0'] = torch.mean(s_model.prototypes_mu[0])
-            log_dict['proto_mu_1'] = torch.mean(s_model.prototypes_mu[1])
-            log_dict['proto_mu_2'] = torch.mean(s_model.prototypes_mu[2])
-            log_dict['proto_mu_3'] = torch.mean(s_model.prototypes_mu[3])
-            log_dict['proto_sigma_0'] = torch.mean(s_model.prototypes_sigma[0])
-            log_dict['proto_sigma_1'] = torch.mean(s_model.prototypes_sigma[1])
-            log_dict['proto_sigma_2'] = torch.mean(s_model.prototypes_sigma[2])
-            log_dict['proto_sigma_3'] = torch.mean(s_model.prototypes_sigma[3])
 
             if iter_num <= args.linearIter:
                 cls_seg = s_model.warm_up(x_2d=volume_batch_l)
@@ -379,54 +361,6 @@ def train(args, snapshot_path):
                 proto_seg = outputs["proto_seg"]
                 mu = outputs["mu"]  # b c h w
                 sigma_sq = outputs["sigma"]  # b c h w
-
-                a_soft = F.softmax(proto_seg, dim=1)
-                a_soft_max = torch.max(a_soft, dim=1)[0].detach().clone().cpu().numpy()
-                a_soft_max_cpu_30 = np.percentile(a_soft_max, 30)
-                a_soft_max_cpu_60 = np.percentile(a_soft_max, 60)
-                a_soft_max_cpu_85 = np.percentile(a_soft_max, 85)
-                a_soft_max_cpu_95 = np.percentile(a_soft_max, 95)
-
-                log_dict['proto_soft_max_30'] = a_soft_max_cpu_30
-                log_dict['proto_soft_max_60'] = a_soft_max_cpu_60
-                log_dict['proto_soft_max_85'] = a_soft_max_cpu_85
-                log_dict['proto_soft_max_95'] = a_soft_max_cpu_95
-
-                # log the sigma--------------------------------------------
-                sigma = torch.mean(sigma_sq, dim=1)
-                sigma_cpu = sigma.clone().detach().cpu().numpy()  # b h w
-                sigma_cpu_30 = np.percentile(sigma_cpu, 30)
-                sigma_cpu_60 = np.percentile(sigma_cpu, 60)
-                sigma_cpu_85 = np.percentile(sigma_cpu, 85)
-                sigma_cpu_95 = np.percentile(sigma_cpu, 95)
-                log_dict['l_sigma_30'] = sigma_cpu_30
-                log_dict['l_sigma_60'] = sigma_cpu_60
-                log_dict['l_sigma_85'] = sigma_cpu_85
-                log_dict['l_sigma_95'] = sigma_cpu_95
-                # ----------------------------------------------------
-
-                # log mu by class--------------------------------------------
-                # mu_mean = torch.mean(mu, dim=1)
-                # mu_mean = rearrange(mu_mean, "(b d) h w -> b h w d ", b=volume_batch_l.size(0))
-                #
-                # mu_0 = mu_mean[label_batch_l == 0]
-                # mu_1 = mu_mean[label_batch_l == 1]
-                # mu_2 = mu_mean[label_batch_l == 2]
-                # mu_3 = mu_mean[label_batch_l == 3]
-                #
-                # mu_0_cpu = mu_0.detach().cpu().numpy()  # b h w d
-                # mu_1_cpu = mu_1.detach().cpu().numpy()  # b h w d
-                # mu_2_cpu = mu_2.detach().cpu().numpy()  # b h w d
-                # mu_3_cpu = mu_3.detach().cpu().numpy()  # b h w d
-                # mu_0_cpu_95 = np.percentile(mu_0_cpu, 95)
-                # log_dict['mu0_95'] = mu_0_cpu_95
-                # mu_1_cpu_95 = np.percentile(mu_1_cpu, 95)
-                # log_dict['mu1_95'] = mu_1_cpu_95
-                # mu_2_cpu_95 = np.percentile(mu_2_cpu, 95)
-                # log_dict['mu2_95'] = mu_2_cpu_95
-                # mu_3_cpu_95 = np.percentile(mu_3_cpu, 95)
-                # log_dict['mu3_95'] = mu_3_cpu_95
-                # ----------------------------------------------------
 
                 if args.sample == 'reliability':
                     mask_p = cal_sampling_reliability_mask(label=label_batch_l, sigma_sq=sigma_sq)
@@ -449,24 +383,12 @@ def train(args, snapshot_path):
             elif iter_num > args.pretrainIter:
                 with torch.no_grad():
                     u_output = t_model(x_2d=volume_batch_ul)
-                    # u_cls_seg = u_output["cls_seg"]
                     u_cls_seg_p = u_output["proto_seg"]
                     prob = F.softmax(u_cls_seg_p, dim=1)
                     sigma = u_output["sigma"]  # B, dim, H, W
                     mu = u_output["mu"]  # B, dim, H, W
 
                     max_probs, max_idx = torch.max(prob, dim=1)
-
-                    # Method 1: three thresholds
-                    # mask = sigma.le(np.percentile(sigma_cpu, args.thre_u)).float()  # threshold for choosing unlabeled data
-                    # mask_p = (sigma.le(np.percentile(sigma_cpu, args.thre_weak))
-                    #           & sigma.ge(np.percentile(sigma_cpu,args.thre_strong))).float() # choosing representations to update prototypes
-
-                    # Method 2: same threshold
-                    # mask = sigma.le(np.percentile(sigma_cpu, 90)).float()
-                    # if iter_num > 20000:
-                    #     mask = sigma.le(np.percentile(sigma_cpu, 80)).float()
-                    # mask_p = mask
 
                     # Method 3: cls threshold
                     sigma_channel_last = sigma.permute(0, 2, 3, 1)  # b h w c
@@ -482,32 +404,6 @@ def train(args, snapshot_path):
                         mask_p_c = sigma_mean.le(np.percentile(sigma_mean_c_cpu, threshold[idx])).float() * mask_c.float()
                         mask += mask_p_c
 
-                    # visulize ------------------------------------------------------
-                    # sigma = sigma[0].mean(0)
-                    # sigma = torch.sqrt(sigma)
-                    # mu = mu[0].mean(0)
-                    # img = volume_batch_ul[0][0]
-                    # pred = max_idx[0]
-                    # pred_prob = max_probs[0]
-                    # refine = mask[0]
-                    # gt = label_batch_ul[0]
-                    # sigma_np = sigma.detach().cpu().numpy()
-                    # mu_np = mu.detach().cpu().numpy()
-                    # img_np = img.detach().cpu().numpy()
-                    # pred_np = pred.detach().cpu().numpy()
-                    # pred_prob_np = pred_prob.detach().cpu().numpy()
-                    # refine_np = refine.detach().cpu().numpy()
-                    # gt_np = gt.detach().cpu().numpy()
-                    # # np.savetxt("a_{}_coarse.txt".format(i), pred_np[:,:,i])
-                    # # np.savetxt("a_{}_prob.txt".format(i), pred_prob_np[:,:,i])
-                    # np.savetxt("sigma.txt", sigma_np)
-                    # # np.savetxt("img.txt", img_np)
-                    # # np.savetxt("mu.txt", mu_np)
-                    # # np.savetxt("a_{}_refine.txt".format(i), refine_np[:,:,i])
-                    # # np.savetxt("gt.txt", gt_np)
-                    # assert 1==0
-                    # visulize -----------------------------------------------------------
-
                 ## CutMix ###########
                 mix_volume_ul, mix_label_ul, mask = util.cut_mix_2d(volume_batch_ul, max_idx, mask)
                 volume_batch = torch.cat((volume_batch_l, mix_volume_ul), dim=0)
@@ -519,20 +415,6 @@ def train(args, snapshot_path):
 
                 mu = outputs["mu"]
                 sigma_sq = outputs["sigma"]
-
-                # log the sigma--------------------------------------------
-                sigma = torch.mean(sigma_sq, dim=1)
-                sigma_l = sigma[:labeled_bs]
-                sigma_cpu = sigma_l.clone().detach().cpu().numpy()
-                sigma_cpu_30 = np.percentile(sigma_cpu, 30)
-                sigma_cpu_60 = np.percentile(sigma_cpu, 60)
-                sigma_cpu_85 = np.percentile(sigma_cpu, 85)
-                sigma_cpu_95 = np.percentile(sigma_cpu, 95)
-                log_dict['l_sigma_30'] = sigma_cpu_30
-                log_dict['l_sigma_60'] = sigma_cpu_60
-                log_dict['l_sigma_85'] = sigma_cpu_85
-                log_dict['l_sigma_95'] = sigma_cpu_95
-                # ----------END--------------------------------------------
 
                 label_batch = torch.cat((label_batch_l, max_idx), dim=0)
                 max_idx_conf = max_idx + (1 - mask) * num_classes
