@@ -8,7 +8,7 @@ from einops import rearrange
 import sys
 sys.path.insert(0, "../../")
 from networks.uncer_head import Uncertainty_head,Uncertainty_head_inverse
-from networks.unetmodel import UNet_DS,UNet
+from networks.unetmodel import UNet
 
 
 def momentum_update(old_mu, new_mu, old_sigma, new_sigma, momentum):
@@ -53,13 +53,8 @@ class UNetProto(nn.Module):
         self.temp = temp
         self.momentum = momentum
 
-        uncer_inchannel = 64
-
-        if backbone == 'unetDS':
-            self.backbone = UNet_DS(self.inchannel, self.nclasses, out_dim=embed_dim)
-        elif backbone == 'unet':
-            self.backbone = UNet(self.inchannel, self.nclasses, out_dim=embed_dim)
-            uncer_inchannel = 16
+        self.backbone = UNet(self.inchannel, self.nclasses, out_dim=embed_dim)
+        uncer_inchannel = 16
 
         ##### Init Uncertainty Head #####
 
