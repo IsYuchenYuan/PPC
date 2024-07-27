@@ -1,5 +1,5 @@
 # Effective Semi-Supervised Medical Image Segmentation with Probabilistic Representations and Prototype Learning
-by Yuchen Yuan, Xi Wang, Xikai Yang, Ruijiang Li, and Pheng-Ann Heng
+by Yuchen Yuan, Xi Wang, Xikai Yang, and Pheng-Ann Heng
 ## Introduction
 Official code for "Effective Semi-Supervised Medical Image
 Segmentation with Probabilistic Representations
